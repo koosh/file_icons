@@ -1,0 +1,7 @@
+name = File icons
+description = Provides a file formatter which renders files as file icons.
+package = Media
+core = 7.x
+dependencies[] = file_entity (>1.99)
+dependencies[] = image
+dependencies[] = media

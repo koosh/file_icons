@@ -1,0 +1,110 @@
+<?php
+
+/**
+ * Implements hook_file_formatter_info().
+ */
+function file_icons_file_formatter_info() {
+  $formatters = array(
+    'file_icon' => array(
+      'label' => t('File icon'),
+      'default settings' => array('image_style' => '', 'icon_set' => ''),
+      'view callback' => 'file_icons_file_formatter_file_icon_view',
+      'settings callback' => 'file_icons_file_formatter_file_icon_settings',
+    ),
+  );
+  return $formatters;
+}
+
+/**
+ * Implements hook_file_formatter_FORMATTER_settings().
+ *
+ * Returns form elements for configuring the 'file_image' formatter.
+ */
+function file_icons_file_formatter_file_icon_settings($form, &$form_state, $settings) {
+  $element = array();
+  $element['image_style'] = array(
+      '#title' => t('Image style'),
+      '#type' => 'select',
+      '#options' => image_style_options(FALSE),
+      '#default_value' => $settings['image_style'],
+      '#empty_option' => t('None (original image)'),
+  );
+  $element['icon_set'] = array(
+      '#title' => t('Icon set'),
+      '#type' => 'textfield',
+      '#default_value' => 'default',
+  );
+  return $element;
+}
+
+/**
+ * Implements hook_file_formatter_FORMATTER_view().
+ *
+ * Returns a drupal_render() array to display an image of the chosen style.
+ *
+ * This formatter is only capable of displaying local images. If the passed in
+ * file is either not local or not an image, nothing is returned, so that
+ * file_view_file() can try another formatter.
+ */
+function file_icons_file_formatter_file_icon_view($file, $display, $langcode) {
+  // Prevent PHP notices when trying to read empty files.
+  // @see http://drupal.org/node/681042
+  if (!$file->filesize) {
+    return;
+  }
+  
+  $icon_dir = media_variable_get('icon_base_directory') . '/' . media_variable_get('icon_set');
+  $icon = file_icon_path($file, $icon_dir);
+  $variables['path'] = $icon;
+  
+  $icon_file = file_icons_get_icon_file($icon_path);
+  
+  if (file_entity_file_is_local($ficon_file) && isset($icon_file->image_dimensions)) {
+    if (!empty($display['settings']['image_style'])) {
+      $element = array(
+          '#theme' => 'image_style',
+          '#style_name' => $display['settings']['image_style'],
+          '#path' => $icon_file->uri,
+          '#width' => $icon_file->image_dimensions['width'],
+          '#height' => $icon_file->image_dimensions['height'],
+      );
+    }
+    else {
+      $element = array(
+          '#theme' => 'image',
+          '#path' => $icon_file->uri,
+          '#width' => $icon_file->image_dimensions['width'],
+          '#height' => $icon_file->image_dimensions['height'],
+      );
+    }
+    return $element;
+  }
+}
+
+function file_icons_get_icon_file($icon_path) {
+  global $user;
+  // We have to copy the icon to our file storage to get it stylized using image_style
+  $image_uri = file_build_uri($icon_path);
+  if (!file_exists($image_uri)) {
+    file_prepare_directory(drupal_dirname($image_uri), FILE_CREATE_DIRECTORY);
+    $destination = file_unmanaged_copy($icon, $image_uri);
+    // Create file object
+    $file = new stdClass();
+    $file->uid = $user->uid;
+    $file->filename = basename($destination);
+    $file->uri = $destination;
+    $file->filemime = mime_content_type($destination);
+    $file->filesize = filesize($destination);
+    $file->status = 1;
+    $file->timestamp = time();
+    $file = file_save($file);
+    file_entity_image_dimensions($file);
+  } else {
+    $file = db_select('file_managed', 'f')
+    ->fields('f')
+    ->condition('f.uri', $image_uri)
+    ->execute()->fetchObject();
+    file_entity_image_dimensions($file);
+  }
+  return $file;
+}
