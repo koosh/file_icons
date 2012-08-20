@@ -57,9 +57,9 @@ function file_icons_file_formatter_file_icon_view($file, $display, $langcode) {
   $icon = file_icon_path($file, $icon_dir);
   $variables['path'] = $icon;
   
-  $icon_file = file_icons_get_icon_file($icon_path);
+  $icon_file = file_icons_get_icon_file($icon);
   
-  if (file_entity_file_is_local($ficon_file) && isset($icon_file->image_dimensions)) {
+  if (file_entity_file_is_local($icon_file) && isset($icon_file->image_dimensions)) {
     if (!empty($display['settings']['image_style'])) {
       $element = array(
           '#theme' => 'image_style',
