@@ -52,29 +52,25 @@ function file_icons_file_formatter_file_icon_view($file, $display, $langcode) {
   if (!$file->filesize) {
     return;
   }
-  
+
   $icon_dir = media_variable_get('icon_base_directory') . '/' . media_variable_get('icon_set');
   $icon = file_icon_path($file, $icon_dir);
   $variables['path'] = $icon;
-  
+
   $icon_file = file_icons_get_icon_file($icon);
-  
-  if (file_entity_file_is_local($icon_file) && isset($icon_file->image_dimensions)) {
+
+  if (file_entity_file_is_local($icon_file)) {
     if (!empty($display['settings']['image_style'])) {
       $element = array(
           '#theme' => 'image_style',
           '#style_name' => $display['settings']['image_style'],
           '#path' => $icon_file->uri,
-          '#width' => $icon_file->image_dimensions['width'],
-          '#height' => $icon_file->image_dimensions['height'],
       );
     }
     else {
       $element = array(
           '#theme' => 'image',
           '#path' => $icon_file->uri,
-          '#width' => $icon_file->image_dimensions['width'],
-          '#height' => $icon_file->image_dimensions['height'],
       );
     }
     return $element;
@@ -84,27 +80,16 @@ function file_icons_file_formatter_file_icon_view($file, $display, $langcode) {
 function file_icons_get_icon_file($icon_path) {
   global $user;
   // We have to copy the icon to our file storage to get it stylized using image_style
-  $image_uri = file_build_uri($icon_path);
+  $image_uri = file_build_uri('file_icons/' . $icon_path);
   if (!file_exists($image_uri)) {
     file_prepare_directory(drupal_dirname($image_uri), FILE_CREATE_DIRECTORY);
-    $destination = file_unmanaged_copy($icon, $image_uri);
-    // Create file object
-    $file = new stdClass();
-    $file->uid = $user->uid;
-    $file->filename = basename($destination);
-    $file->uri = $destination;
-    $file->filemime = mime_content_type($destination);
-    $file->filesize = filesize($destination);
-    $file->status = 1;
-    $file->timestamp = time();
-    $file = file_save($file);
-    file_entity_image_dimensions($file);
+    $file = file_save_data(file_get_contents($icon_path), $image_uri, FILE_EXISTS_REPLACE);
   } else {
     $file = db_select('file_managed', 'f')
     ->fields('f')
     ->condition('f.uri', $image_uri)
     ->execute()->fetchObject();
-    file_entity_image_dimensions($file);
+    // TODO: there is a possibility that the file exists, but is not in the database.
   }
   return $file;
 }
